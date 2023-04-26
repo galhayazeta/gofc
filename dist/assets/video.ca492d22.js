@@ -1,0 +1,1 @@
+import{v as t}from"./videotable.4eba135b.js";import{r as o,o as r,O as s}from"./index.9885e485.js";import"./api.709978ef.js";import"./Button.a287dc21.js";import"./Popconfirm.7baa0d51.js";const b={__name:"video",setup(a){const e=o({website:"fc2"});return(i,c)=>(r(),s(t,{website:e.website},null,8,["website"]))}};export{b as default};
