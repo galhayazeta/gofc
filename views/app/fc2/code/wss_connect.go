@@ -61,14 +61,15 @@ func (obj *Ws_class) Wss_conn() {
 
 	go obj.msg_receive()
 
-	obj.heart_beat_send()
 
-	
+	time.Sleep(time.Millisecond * 1000)
+
 	err = obj.video_link_send()
 	if err != nil {
 		logs.Log_write("录播_错误", "Wss_conn", fmt.Sprintf("视频连接获取失败 :%v", err))
 		return
 	}
+
 
 
 	for {
