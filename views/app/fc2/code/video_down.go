@@ -222,7 +222,7 @@ func (obj *Video_Down_class) Video_info_post(video_path string) {
 	
 	log.Println("向数据库提交数据")
 	i := obj.Video_size_judge()
-	if i > 50{
+	if i > 10{
 		p :=database.Video_Datas_models{
 			Video_name: obj.VideoName,
 			Uid: obj.Uid,
