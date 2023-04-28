@@ -134,10 +134,10 @@ func (obj *Info_class)Channel_Get()(channel_version,title,userid,name string,err
 		logs.Log_write("录播_错误","Channel_Get",fmt.Sprintf("未开播 数据格式转换错误 str --> json  原因为:%v",err))
 		return channel_version,title,userid,name,err
 	}
-	channel_version=json_data.Data.ChannelData.Version  
-	title=json_data.Data.ChannelData.Title  
-	userid=json_data.Data.ChannelData.Userid  
-	name=json_data.Data.ProfileData.Name      
+	channel_version=json_data.Data.ChannelData.Version   // ["data"]["channel_data"]["version"]
+	title=json_data.Data.ChannelData.Title  //["data"]["channel_data"]["title"]
+	userid=json_data.Data.ChannelData.Userid  //["data"]["channel_data"]["userid"]
+	name=json_data.Data.ProfileData.Name      //["data"]["profile_data"]["name"]
 	return channel_version,title,userid,name,nil
 
 
@@ -242,6 +242,7 @@ type FC2_open_live_json struct {
 
 
 func Fc2_open_live()(result map[string]string, err error){
+	//获取开播的uid
 	result=map[string]string{}
 	link := "https://live.fc2.com/adult/contents/allchannellist.php"
 	head := make(map[string]string, 0)

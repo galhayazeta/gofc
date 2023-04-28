@@ -16,24 +16,24 @@ import (
 )
 
 type Ws_class struct {
-	Link        string   
-	Proxy       string   
-	Heart_count int     
-	Heart_time  time.Time 
-	Quality     string   
-	Uid         string    
-	Name        string   
-	VideoName   string   
-	Start_time  string    
+	Link        string    //ws连接
+	Proxy       string    //代理
+	Heart_count int       //心跳次数
+	Heart_time  time.Time //上次心跳时间
+	Quality     string    //画质
+	Uid         string    //房间号
+	Name        string    //up名
+	VideoName   string    //视频名称
+	Start_time  string    //开始时间 字符串格式
 
-	Conn             *websocket.Conn   
-	Retry_count      int              
-	State            bool             
-	Video_Down       *Video_Down_class 
-	Video_Down_state bool            
+	Conn             *websocket.Conn   //持续连接
+	Retry_count      int               //重试次数
+	State            bool              //连接状态  可以获取为true  不能获取为fasle
+	Video_Down       *Video_Down_class //视频下载结构体
+	Video_Down_state bool              //是否开启下载  未开启下载时 不能终止下载
 }
 
-
+// 创建wss链接
 func (obj *Ws_class) Wss_conn() {
 	var head = &http.Header{}
 
@@ -47,23 +47,25 @@ func (obj *Ws_class) Wss_conn() {
 		u, _ := url.Parse(obj.Proxy)
 		dl = websocket.Dialer{
 			Proxy: http.ProxyURL(u),
-		} 
+		} //实例化
 	}
 
-	conn, _, err := dl.Dial(obj.Link, *head) 
+	conn, _, err := dl.Dial(obj.Link, *head) //建立链接
 	if err != nil {
-	
+		//建立链接失败
 		logs.Log_write("录播_错误", "Wss_conn", fmt.Sprintf("建立链接失败 :%v", err))
 		return
 	}
 	obj.Conn = conn
 
-
+	//监听包的接收
 	go obj.msg_receive()
 
+	//发送心跳包握手
+	// obj.heart_beat_send()
 
-	time.Sleep(time.Millisecond * 1000)
-
+	// 发送视频连接获取包
+	time.Sleep(time.Second*1)
 	err = obj.video_link_send()
 	if err != nil {
 		logs.Log_write("录播_错误", "Wss_conn", fmt.Sprintf("视频连接获取失败 :%v", err))
@@ -71,7 +73,7 @@ func (obj *Ws_class) Wss_conn() {
 	}
 
 
-
+	//循环发送心跳包
 	for {
 		if !obj.State {
 			log.Println("连接结束")
@@ -84,7 +86,7 @@ func (obj *Ws_class) Wss_conn() {
 		if d > 30 {
 			err := obj.heart_beat_send()
 			if err != nil {
-		
+				//心跳包发送失败 终止连接
 				obj.State = false
 				logs.Log_write("录播_正常", "Wss_conn", fmt.Sprintf("心跳包发送失败 终止连接 :%v", err))
 				obj.Conn.Close()
@@ -107,18 +109,18 @@ func (obj *Ws_class) Wss_conn() {
 	}
 }
 
-
+// 获取的消息
 func (obj *Ws_class) msg_receive() {
 	for {
 		_, p, err := obj.Conn.ReadMessage()
 		if err != nil {
-			
+			//关闭连接
 			logs.Log_write("录播_正常", "msg_receive", fmt.Sprintf("获取消息失败 关闭连接:%v", err))
 			obj.Conn.Close()
 			if obj.Video_Down_state {
 				obj.Video_Down.State = false
 			}
-		
+			//停止循环
 			return
 		}
 		obj.msg_code_check(string(p))
@@ -126,10 +128,11 @@ func (obj *Ws_class) msg_receive() {
 
 }
 
-
+// 发送心跳包
 func (obj *Ws_class) heart_beat_send() error {
 	msg := `{"name":"heartbeat","arguments":{},"id":` + strconv.Itoa(obj.Heart_count) + "}"
 	err := obj.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+
 	if err != nil {
 		logs.Log_write("录播_正常", "heart_beat_send", fmt.Sprintf("发送心跳请求包失败:%v", err))
 		return err
@@ -141,27 +144,31 @@ func (obj *Ws_class) heart_beat_send() error {
 
 }
 
-
+// 发送请求视频链接的包
 func (obj *Ws_class) video_link_send() error {
 	err := obj.Conn.WriteMessage(websocket.TextMessage, []byte(`{"name":"get_hls_information","arguments":{},"id":1}`))
+
 	if err != nil {
 		logs.Log_write("录播_正常", "video_link_send", fmt.Sprintf("发送视频链接请求包失败:%v", err))
 		return err
 	}
+
 	return nil
 
 }
 
-
+// 解析具体数据
 func (obj *Ws_class) msg_code_check(data string) {
 
+	//解析数据
 	if strings.Contains(data, "playlists") {
+		
 		m3u8link, err := obj.quality_select(data)
 		if err != nil {
 			logs.Log_write("录播_错误", "msg_code_check", fmt.Sprintf("获取视频链接出现错误:%v", err))
 			return
 		}
-	
+		//开启下载函数 下载视频
 		video_down := &Video_Down_class{
 			M3u8link:   m3u8link,
 			Proxy:      obj.Proxy,
@@ -170,7 +177,7 @@ func (obj *Ws_class) msg_code_check(data string) {
 			VideoName:  obj.VideoName,
 			Start_time: obj.Start_time,
 			State:      true,
-			Index_map:  map[string]string{},
+			// Index_map: ,
 			Count: 0,
 		}
 		obj.Video_Down = video_down
@@ -188,7 +195,8 @@ func (obj *Ws_class) msg_code_check(data string) {
 		return
 	}
 	s := result[0][1]
-	fmt.Println("code:", s)
+	
+	log.Println("code:",s)
 	switch s {
 	case "4101":
 		logs.Log_write("录播_正常", "msg_code_check", fmt.Sprintf("主播开启收费"))
@@ -215,7 +223,7 @@ func (obj *Ws_class) msg_code_check(data string) {
 }
 
 type Quality_json struct {
-
+	//视频链接处理包
 	Name      string `json:"name"`
 	ID        int    `json:"id"`
 	Arguments struct {
@@ -238,9 +246,12 @@ type Quality_json struct {
 	} `json:"arguments"`
 }
 
-
+// 画质选择
 func (obj *Ws_class) quality_select(data string) (string, error) {
+	// fmt.Println("视频流数据", data)
 
+	//延迟默认用高 网络兼容性更好
+	// "playlists_high_latency"
 	video_quality := make(map[string]int)
 	video_quality["150Kbps"] = 11
 	video_quality["400Kbps"] = 21
@@ -265,7 +276,7 @@ func (obj *Ws_class) quality_select(data string) (string, error) {
 	default_list := []string{"3Mbps", "2Mbps", "1.2Mbps", "400Kbps", "150Kbps"}
 	st := false
 	if m3u8link == "" {
-		
+		//未获取到指定画质  默认使用3M -> 2M -> 1.2M  -> 400KB -> 150KB
 		for _, v := range default_list {
 			if st {
 				break
